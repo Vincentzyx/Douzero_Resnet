@@ -1,7 +1,7 @@
 # Douzero_Resnet
 Douzero with ResNet and GPU support for Windows
 
-Contributer:
+Contributor:
 
 [EdwardPooh](https://github.com/EdwardPooh): Implements the resnet Model.
 
