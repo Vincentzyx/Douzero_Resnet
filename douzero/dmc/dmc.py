@@ -18,16 +18,14 @@ from .utils import get_batch, log, create_env, create_optimizers, act
 
 mean_episode_return_buf = {p:deque(maxlen=100) for p in ['landlord', 'landlord_up', 'landlord_down', 'bidding']}
 
+
 def compute_loss(logits, targets):
     loss = ((logits.squeeze(-1) - targets)**2).mean()
     return loss
 
-def compute_loss_for_bid(outputs, reward):
-    pass
 
 def learn(position, actor_models, model, batch, optimizer, flags, lock):
     """Performs a learning (optimization) step."""
-    position_index = {"landlord": 31, "landlord_up": 32, "landlord_down": 33}
     print("Learn", position)
     if flags.training_device != "cpu":
         device = torch.device('cuda:'+str(flags.training_device))
@@ -37,23 +35,16 @@ def learn(position, actor_models, model, batch, optimizer, flags, lock):
     obs_x = torch.flatten(obs_x, 0, 1).to(device)
     obs_z = torch.flatten(batch['obs_z'].to(device), 0, 1).float()
     target = torch.flatten(batch['target'].to(device), 0, 1)
-    if position != "bidding":
-        episode_returns = batch['episode_return'][batch['done'] & (batch["obs_type"] == position_index[position])]
-    else:
-        episode_returns = batch['episode_return'][batch['done'] & ((batch["obs_type"] == 41) | (batch["obs_type"] == 42) | (batch["obs_type"] == 43))]
+    episode_returns = batch['episode_return'][batch['done']]
     if len(episode_returns) > 0:
         mean_episode_return_buf[position].append(torch.mean(episode_returns).to(device))
     with lock:
         learner_outputs = model(obs_z, obs_x, return_value=True)
-        if position == "bidding":
-            pass
-        else:
-            loss = compute_loss(learner_outputs['values'], target)
+        loss = compute_loss(learner_outputs['values'], target)
         stats = {
              'mean_episode_return_'+position: torch.mean(torch.stack([_r for _r in mean_episode_return_buf[position]])).item(),
              'loss_'+position: loss.item(),
         }
-
         optimizer.zero_grad()
         loss.backward()
         nn.utils.clip_grad_norm_(model.parameters(), flags.max_grad_norm)
